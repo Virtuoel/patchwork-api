@@ -23,10 +23,12 @@ import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.event.entity.EntityJoinWorldEvent;
 import net.minecraftforge.event.entity.living.LivingAttackEvent;
 import net.minecraftforge.event.entity.living.LivingDeathEvent;
+import net.minecraftforge.event.entity.living.LivingFallEvent;
 import net.minecraftforge.event.entity.living.LivingHurtEvent;
 import net.minecraftforge.event.entity.living.LivingSpawnEvent;
 import net.minecraftforge.event.entity.living.LivingEvent;
 import net.minecraftforge.event.entity.player.PlayerEvent;
+import net.minecraftforge.event.entity.player.PlayerFlyableFallEvent;
 import net.minecraftforge.event.entity.player.PlayerInteractEvent;
 import net.minecraftforge.eventbus.api.Event;
 import net.minecraftforge.eventbus.api.Event.Result;
@@ -73,7 +75,6 @@ public class EntityEvents implements ModInitializer {
 		return MinecraftForge.EVENT_BUS.post(new EntityJoinWorldEvent(entity, world));
 	}
 
-	// PlayerEvents
 	public static void onPlayerLoggedIn(ServerPlayerEntity playerEntity) {
 		MinecraftForge.EVENT_BUS.post(new PlayerEvent.PlayerLoggedInEvent(playerEntity));
 	}
@@ -85,6 +86,20 @@ public class EntityEvents implements ModInitializer {
 	public static float onLivingHurt(LivingEntity entity, DamageSource src, float damage) {
 		LivingHurtEvent event = new LivingHurtEvent(entity, src, damage);
 		return MinecraftForge.EVENT_BUS.post(event) ? 0 : event.getAmount();
+	}
+
+	public static float[] onLivingFall(LivingEntity entity, float distance, float damageMultiplier) {
+		LivingFallEvent event = new LivingFallEvent(entity, distance, damageMultiplier);
+
+		if (MinecraftForge.EVENT_BUS.post(event)) {
+			return null;
+		}
+
+		return new float[]{ event.getDistance(), event.getDamageMultiplier() };
+	}
+
+	public static void onPlayerFall(PlayerEntity player, float distance, float damageMultiplier) {
+		MinecraftForge.EVENT_BUS.post(new PlayerFlyableFallEvent(player, distance, damageMultiplier));
 	}
 
 	public static Result canEntitySpawn(MobEntity entity, IWorld world, double x, double y, double z, MobSpawnerLogic spawner, SpawnType spawnType) {
@@ -101,7 +116,8 @@ public class EntityEvents implements ModInitializer {
 		Result result = canEntitySpawn(entity, world, x, y, z, spawner, SpawnType.SPAWNER);
 
 		if (result == Result.DEFAULT) {
-			return entity.canSpawn(world, SpawnType.SPAWNER) && entity.canSpawn(world); //vanilla logic, but inverted since we're checking if it CAN spawn instead of if it CAN'T
+			// Vanilla logic, but inverted since we're checking if it CAN spawn instead of if it CAN'T
+			return entity.canSpawn(world, SpawnType.SPAWNER) && entity.canSpawn(world);
 		} else {
 			return result == Result.ALLOW;
 		}
@@ -111,7 +127,8 @@ public class EntityEvents implements ModInitializer {
 		Result result = canEntitySpawn(entity, world, x, y, z, spawner, spawnType);
 
 		if (result == Result.DEFAULT) {
-			return !(sqDistanceFromPlayer > 16384.0D && entity.canImmediatelyDespawn(sqDistanceFromPlayer)) && entity.canSpawn(world, SpawnType.NATURAL) && entity.canSpawn(world); //vanilla logic, but inverted since we're checking if it CAN spawn instead of if it CAN'T
+			// Vanilla logic, but inverted since we're checking if it CAN spawn instead of if it CAN'T
+			return !(sqDistanceFromPlayer > 128*128 && entity.canImmediatelyDespawn(sqDistanceFromPlayer)) && entity.canSpawn(world, SpawnType.NATURAL) && entity.canSpawn(world);
 		} else {
 			return result == Result.ALLOW;
 		}
